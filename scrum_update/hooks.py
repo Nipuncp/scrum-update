@@ -5,6 +5,16 @@ app_description = "App to ease scrum update"
 app_email = "nipuncp123@gmail.com"
 app_license = "mit"
 
+# Inject Scrum claim button into the Task form
+doctype_js = {"Task": "public/js/task.js"}
+
+# Nightly cleanup of stale claims
+scheduler_events = {
+	"daily": [
+		"scrum_update.scrum_update.tasks.expire_old_claims",
+	]
+}
+
 # Apps
 # ------------------
 
