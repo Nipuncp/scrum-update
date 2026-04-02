@@ -25,7 +25,7 @@ def get_columns():
 			"fieldname": "employee_name",
 			"label": "Employee",
 			"fieldtype": "Data",
-			"width": 180,
+			"width": 160,
 		},
 		{
 			"fieldname": "update_status",
@@ -34,16 +34,54 @@ def get_columns():
 			"width": 110,
 		},
 		{
-			"fieldname": "today_tasks",
-			"label": "Today's Tasks",
+			"fieldname": "task",
+			"label": "Task",
+			"fieldtype": "Link",
+			"options": "Task",
+			"width": 140,
+		},
+		{
+			"fieldname": "task_subject",
+			"label": "Task Subject",
 			"fieldtype": "Data",
-			"width": 360,
+			"width": 220,
+		},
+		{
+			"fieldname": "project",
+			"label": "Project",
+			"fieldtype": "Link",
+			"options": "Project",
+			"width": 150,
+		},
+		{
+			"fieldname": "task_status",
+			"label": "Task Status",
+			"fieldtype": "Data",
+			"width": 120,
+		},
+		{
+			"fieldname": "expected_time",
+			"label": "Expected Hrs",
+			"fieldtype": "Float",
+			"width": 110,
+		},
+		{
+			"fieldname": "exp_end_date",
+			"label": "Due Date",
+			"fieldtype": "Date",
+			"width": 110,
+		},
+		{
+			"fieldname": "notes",
+			"label": "Scrum Notes",
+			"fieldtype": "Small Text",
+			"width": 220,
 		},
 		{
 			"fieldname": "yesterday_tasks",
 			"label": "Yesterday's Tasks",
 			"fieldtype": "Data",
-			"width": 360,
+			"width": 300,
 		},
 	]
 
@@ -67,15 +105,10 @@ def get_claims_by_employee(date, project_filter=None):
 
 
 def format_tasks(claims):
-	"""Aggregate claims into a readable string.
-
-	Groups tasks by project: "ProjectA – task1, task2; ProjectB – task3".
-	If a claim has notes, appends them in parentheses after the task subject.
-	"""
+	"""Aggregate claims into "ProjectA – task1, task2; ProjectB – task3"."""
 	if not claims:
 		return ""
 
-	# Group by project
 	project_tasks: dict[str, list[str]] = {}
 	for c in claims:
 		project = c.project or "—"
@@ -108,25 +141,76 @@ def get_data(filters):
 		order_by="employee_name asc",
 	)
 
-	today_map = get_claims_by_employee(date, filters.get("project"))
+	# Today's claims with full task detail
+	today_conditions = {"claim_date": date}
+	if filters.get("project"):
+		today_conditions["project"] = filters["project"]
+	if filters.get("employee"):
+		today_conditions["employee"] = filters["employee"]
+
+	today_claims = frappe.get_all(
+		"Scrum Claim",
+		filters=today_conditions,
+		fields=[
+			"employee",
+			"employee_name",
+			"task",
+			"task_subject",
+			"project",
+			"task_status",
+			"expected_time",
+			"exp_end_date",
+			"notes",
+		],
+		order_by="employee_name asc, project asc",
+	)
+
+	# Yesterday's claims aggregated per employee (for the summary column)
 	yesterday_map = get_claims_by_employee(prev_date, filters.get("project"))
 
-	rows = []
-	for emp in employees:
-		today_claims = today_map.get(emp.name, [])
-		yesterday_claims = yesterday_map.get(emp.name, [])
-		has_update = bool(today_claims)
+	# Build a set of employee IDs that have today's claims
+	employees_with_update = {c.employee for c in today_claims}
 
+	rows = []
+
+	# Rows for employees WITH today's claims — one row per claim
+	for c in today_claims:
+		rows.append(
+			{
+				"employee": c.employee,
+				"employee_name": c.employee_name,
+				"update_status": "Present",
+				"task": c.task,
+				"task_subject": c.task_subject,
+				"project": c.project,
+				"task_status": c.task_status,
+				"expected_time": c.expected_time,
+				"exp_end_date": c.exp_end_date,
+				"notes": c.notes,
+				"yesterday_tasks": format_tasks(yesterday_map.get(c.employee, [])),
+			}
+		)
+
+	# Sentinel rows for employees WITHOUT today's claims
+	for emp in employees:
+		if emp.name in employees_with_update:
+			continue
 		rows.append(
 			{
 				"employee": emp.name,
 				"employee_name": emp.employee_name,
-				"update_status": "Present" if has_update else "No Update",
-				"today_tasks": format_tasks(today_claims),
-				"yesterday_tasks": format_tasks(yesterday_claims),
+				"update_status": "No Update",
+				"task": None,
+				"task_subject": None,
+				"project": None,
+				"task_status": None,
+				"expected_time": None,
+				"exp_end_date": None,
+				"notes": None,
+				"yesterday_tasks": format_tasks(yesterday_map.get(emp.name, [])),
 			}
 		)
 
-	# Sort: employees without updates float to the top, then alphabetical
+	# Sort: No Update rows first, then by employee name
 	rows.sort(key=lambda r: (r["update_status"] == "Present", r["employee_name"]))
 	return rows
