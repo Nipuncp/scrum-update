@@ -4,3 +4,5 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+scrum_update.scrum_update.patches.v1_backfill_claim_status_and_count
+scrum_update.scrum_update.patches.v1_1_create_task_claim_count_field

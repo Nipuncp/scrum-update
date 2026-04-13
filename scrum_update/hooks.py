@@ -8,6 +8,28 @@ app_license = "mit"
 # Inject Scrum claim button into the Task form
 doctype_js = {"Task": "public/js/task.js"}
 
+# Add a read-only "Times Claimed" counter to the Task form
+custom_fields = {
+	"Task": [
+		{
+			"fieldname": "scrum_claim_count",
+			"label": "Times Claimed",
+			"fieldtype": "Int",
+			"read_only": 1,
+			"insert_after": "status",
+			"default": "0",
+			"description": "Number of times this task has been claimed in a daily scrum",
+		}
+	]
+}
+
+# Sync Scrum Claim status whenever a Task is saved
+doc_events = {
+	"Task": {
+		"on_update": "scrum_update.scrum_update.doctype.scrum_claim.scrum_claim.sync_claims_on_task_update",
+	}
+}
+
 # Nightly cleanup of stale claims
 scheduler_events = {
 	"daily": [
