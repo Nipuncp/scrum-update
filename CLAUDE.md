@@ -113,6 +113,6 @@ Wire custom JS into ERPNext forms in `hooks.py`: `doctype_js = {"Task": "public/
 
 ## Code Style
 
-- Python: tabs for indentation, 110-char line length, ruff-enforced. Target Python 3.14.
+- Python: tabs for indentation, 110-char line length, ruff-enforced. Target Python 3.10.
 - JS: prettier + eslint via pre-commit.
 - Enable pre-commit: `cd apps/scrum_update && pre-commit install`
